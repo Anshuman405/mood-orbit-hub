@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string | null
@@ -187,6 +208,108 @@ export type Database = {
           },
         ]
       }
+      post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          song_id: string
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          song_id: string
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          song_id?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -217,6 +340,89 @@ export type Database = {
           name?: string | null
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      responses: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          media_url: string | null
+          post_id: string
+          prompt: string | null
+          type: Database["public"]["Enums"]["response_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          media_url?: string | null
+          post_id: string
+          prompt?: string | null
+          type: Database["public"]["Enums"]["response_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          media_url?: string | null
+          post_id?: string
+          prompt?: string | null
+          type?: Database["public"]["Enums"]["response_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responses_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      songs: {
+        Row: {
+          album: string | null
+          artist: string
+          artwork_url: string | null
+          created_at: string
+          duration_ms: number | null
+          id: string
+          metadata: Json | null
+          provider: string
+          provider_song_id: string
+          title: string
+        }
+        Insert: {
+          album?: string | null
+          artist: string
+          artwork_url?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          provider: string
+          provider_song_id: string
+          title: string
+        }
+        Update: {
+          album?: string | null
+          artist?: string
+          artwork_url?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          provider?: string
+          provider_song_id?: string
+          title?: string
         }
         Relationships: []
       }
@@ -307,6 +513,7 @@ export type Database = {
         | "stressed"
         | "creative"
         | "grateful"
+      response_type: "image" | "audio" | "video" | "text" | "ai"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -447,6 +654,7 @@ export const Constants = {
         "creative",
         "grateful",
       ],
+      response_type: ["image", "audio", "video", "text", "ai"],
     },
   },
 } as const
