@@ -316,32 +316,46 @@ export type Database = {
           bio: string | null
           created_at: string | null
           email: string
+          favorite_song_id: string | null
           id: string
           name: string | null
           updated_at: string | null
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           email: string
+          favorite_song_id?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
           email?: string
+          favorite_song_id?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
           user_id?: string
+          username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_favorite_song_id_fkey"
+            columns: ["favorite_song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       responses: {
         Row: {
@@ -495,9 +509,74 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_comment: {
+        Args: { _user_id: string; _post_id: string; _content: string }
+        Returns: {
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+      }
+      create_post: {
+        Args: {
+          _user_id: string
+          _song_provider: string
+          _provider_song_id: string
+          _title: string
+          _artist: string
+          _album?: string
+          _artwork_url?: string
+          _caption?: string
+          _visibility?: string
+        }
+        Returns: {
+          caption: string | null
+          created_at: string
+          id: string
+          song_id: string
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+      }
+      ensure_profile: {
+        Args: {
+          _user_id: string
+          _email: string
+          _name?: string
+          _avatar_url?: string
+          _username?: string
+          _favorite_song_id?: string
+        }
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          email: string
+          favorite_song_id: string | null
+          id: string
+          name: string | null
+          updated_at: string | null
+          user_id: string
+          username: string | null
+        }
+      }
       get_user_id_from_clerk: {
         Args: { clerk_user_id: string }
         Returns: string
+      }
+      set_current_user_id: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
+      toggle_like: {
+        Args: { _user_id: string; _post_id: string }
+        Returns: {
+          action: string
+        }[]
       }
     }
     Enums: {

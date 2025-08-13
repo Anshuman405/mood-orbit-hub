@@ -9,6 +9,12 @@ const Index = () => {
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <a href="/" className="font-semibold">Looply</a>
           <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/feed">Feed</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/post">Post</Link>
+            </Button>
             <SignedOut>
               <Button asChild variant="default" size="sm">
                 <Link to="/auth">Sign in</Link>
