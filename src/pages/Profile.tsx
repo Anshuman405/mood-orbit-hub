@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClerkSupabaseSync } from "@/hooks/useClerkSupabaseSync";
-import { useSpotifyConnection } from "@/hooks/useSpotifyConnection";
 import { getUserTopTracks, getUserTopArtists, getRecentlyPlayed, getSpotifyAuthUrl } from "@/lib/spotify";
 import { Heart, Music, Users, Upload, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "@/components/ui/use-toast";
 
 interface ProfileData {
   profile: any;
@@ -28,10 +28,7 @@ const fetchProfile = async (userId: string, currentUserId?: string): Promise<Pro
     { data: following }
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", userId).single(),
-    supabase.from("posts").select(`
-      *,
-      songs (*)
-    `).eq("user_id", userId).order("created_at", { ascending: false }),
+    supabase.from("posts").select(`*, songs (*)`).eq("user_id", userId).order("created_at", { ascending: false }),
     supabase.from("artworks").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
     currentUserId ? supabase.from("followers").select("id").eq("follower_id", currentUserId).eq("following_id", userId).maybeSingle() : { data: null }
   ]);
@@ -49,23 +46,58 @@ export default function Profile() {
   useClerkSupabaseSync();
   const { id } = useParams<{ id: string }>();
   const { user } = useUser();
-  const { isConnected: spotifyConnected } = useSpotifyConnection();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [spotifyData, setSpotifyData] = useState<any>({});
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["profile", id],
-    queryFn: () => fetchProfile(id!, user?.id),
-    enabled: !!id
+  const profileId = id || user?.id;
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["profile", profileId],
+    queryFn: () => fetchProfile(profileId!, user?.id),
+    enabled: !!profileId
   });
 
+  // Check Spotify connection for the current user
+  const checkSpotifyConnection = async () => {
+    if (!profileId) return;
+    const { data: connection } = await supabase
+      .from("spotify_connections")
+      .select("user_id")
+      .eq("user_id", profileId)
+      .maybeSingle();
+    setIsSpotifyConnected(!!connection);
+  };
+
+  useEffect(() => {
+    checkSpotifyConnection();
+  }, [profileId]);
+
+  // Handle Spotify redirect toast
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("spotify") === "connected") {
+      toast({
+        title: "Spotify Connected",
+        description: `Connected as ${params.get("name") || "your account"}`,
+      });
+      navigate(location.pathname, { replace: true });
+      checkSpotifyConnection();
+      refetch();
+    }
+  }, [location.search, navigate, refetch]);
+
+  // Set page title
   useEffect(() => {
     if (data?.profile) {
       document.title = `${data.profile.username || data.profile.name || "User"} | Looply`;
     }
   }, [data]);
 
+  // Fetch Spotify data if connected and own profile
   useEffect(() => {
-    if (data?.isOwnProfile && spotifyConnected && user?.id) {
+    if (data?.isOwnProfile && isSpotifyConnected && user?.id) {
       Promise.all([
         getUserTopTracks(user.id, 10),
         getUserTopArtists(user.id, 10),
@@ -74,18 +106,12 @@ export default function Profile() {
         setSpotifyData({ topTracks, topArtists, recentlyPlayed });
       });
     }
-  }, [data?.isOwnProfile, spotifyConnected, user?.id]);
+  }, [data?.isOwnProfile, isSpotifyConnected, user?.id]);
 
   const handleFollow = async () => {
-    if (!user || !id) return;
-    
-    await supabase.rpc("toggle_follow", {
-      _follower_id: user.id,
-      _following_id: id
-    });
-    
-    // Refetch profile data
-    // queryClient.invalidateQueries({ queryKey: ["profile", id] });
+    if (!user || !profileId) return;
+    await supabase.rpc("toggle_follow", { _follower_id: user.id, _following_id: profileId });
+    refetch();
   };
 
   const connectSpotify = () => {
@@ -118,26 +144,15 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <div className="container mx-auto max-w-4xl px-4 py-6">
-        {/* Profile Header */}
         <Card className="mb-6">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
               {data.profile.avatar_url && (
-                <img
-                  src={data.profile.avatar_url}
-                  alt="Profile"
-                  className="h-24 w-24 rounded-full"
-                />
+                <img src={data.profile.avatar_url} alt="Profile" className="h-24 w-24 rounded-full" />
               )}
-              
               <div className="flex-1">
-                <h1 className="text-2xl font-bold">
-                  {data.profile.username || data.profile.name || "User"}
-                </h1>
-                {data.profile.bio && (
-                  <p className="text-muted-foreground mt-2">{data.profile.bio}</p>
-                )}
-                
+                <h1 className="text-2xl font-bold">{data.profile.username || data.profile.name || "User"}</h1>
+                {data.profile.bio && <p className="text-muted-foreground mt-2">{data.profile.bio}</p>}
                 <div className="flex items-center space-x-6 mt-4">
                   <div className="text-center">
                     <p className="text-lg font-semibold">{data.profile.post_count || 0}</p>
@@ -153,21 +168,21 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
-
               <div className="flex flex-col space-y-2">
                 {!data.isOwnProfile && user && (
-                  <Button
-                    onClick={handleFollow}
-                    variant={data.isFollowing ? "outline" : "default"}
-                  >
+                  <Button onClick={handleFollow} variant={data.isFollowing ? "outline" : "default"}>
                     {data.isFollowing ? "Unfollow" : "Follow"}
                   </Button>
                 )}
-                
-                {data.isOwnProfile && !spotifyConnected && (
-                  <Button onClick={connectSpotify} variant="outline">
+
+                {data.isOwnProfile && (
+                  <Button
+                    onClick={connectSpotify}
+                    variant={isSpotifyConnected ? "outline" : "default"}
+                    disabled={isSpotifyConnected}
+                  >
                     <Music className="h-4 w-4 mr-2" />
-                    Connect Spotify
+                    {isSpotifyConnected ? "Spotify Connected" : "Connect Spotify"}
                   </Button>
                 )}
               </div>
@@ -175,17 +190,16 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* Content Tabs */}
+        {/* Tabs */}
         <Tabs defaultValue="posts" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="posts">Posts</TabsTrigger>
             <TabsTrigger value="artworks">Artworks</TabsTrigger>
             <TabsTrigger value="likes">Likes</TabsTrigger>
-            {data.isOwnProfile && spotifyConnected && (
-              <TabsTrigger value="spotify">Spotify</TabsTrigger>
-            )}
+            {data.isOwnProfile && isSpotifyConnected && <TabsTrigger value="spotify">Spotify</TabsTrigger>}
           </TabsList>
 
+          {/* Posts Tab */}
           <TabsContent value="posts" className="space-y-4">
             {data.posts.length === 0 ? (
               <Card>
@@ -197,24 +211,14 @@ export default function Profile() {
             ) : (
               <div className="grid gap-4">
                 {data.posts.map((post) => (
-                  <motion.div
-                    key={post.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
+                  <motion.div key={post.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                     <Card className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-muted-foreground">
-                            {post.songs?.artist} — {post.songs?.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(post.created_at).toLocaleDateString()}
-                          </p>
+                          <p className="text-sm text-muted-foreground">{post.songs?.artist} — {post.songs?.title}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(post.created_at).toLocaleDateString()}</p>
                         </div>
-                        {post.caption && (
-                          <p className="mb-3">{post.caption}</p>
-                        )}
+                        {post.caption && <p className="mb-3">{post.caption}</p>}
                         <Button variant="outline" size="sm" asChild>
                           <a href={`/post/${post.id}`}>
                             <ExternalLink className="h-4 w-4 mr-2" />
@@ -229,6 +233,7 @@ export default function Profile() {
             )}
           </TabsContent>
 
+          {/* Artworks Tab */}
           <TabsContent value="artworks" className="space-y-4">
             {data.artworks.length === 0 ? (
               <Card>
@@ -240,38 +245,18 @@ export default function Profile() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.artworks.map((artwork) => (
-                  <motion.div
-                    key={artwork.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                  >
+                  <motion.div key={artwork.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
                     <Card className="overflow-hidden">
                       <div className="aspect-square">
-                        {artwork.file_type === "image" && (
-                          <img
-                            src={artwork.file_url}
-                            alt={artwork.title || "Artwork"}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                        {artwork.file_type === "video" && (
-                          <video
-                            src={artwork.file_url}
-                            className="w-full h-full object-cover"
-                            controls
-                          />
-                        )}
+                        {artwork.file_type === "image" && <img src={artwork.file_url} alt={artwork.title || "Artwork"} className="w-full h-full object-cover" />}
+                        {artwork.file_type === "video" && <video src={artwork.file_url} className="w-full h-full object-cover" controls />}
                         {artwork.file_type === "audio" && (
                           <div className="w-full h-full bg-muted flex items-center justify-center">
                             <Music className="h-12 w-12 text-muted-foreground" />
                           </div>
                         )}
                       </div>
-                      {artwork.title && (
-                        <CardContent className="p-3">
-                          <p className="text-sm font-medium">{artwork.title}</p>
-                        </CardContent>
-                      )}
+                      {artwork.title && <CardContent className="p-3"><p className="text-sm font-medium">{artwork.title}</p></CardContent>}
                     </Card>
                   </motion.div>
                 ))}
@@ -279,6 +264,7 @@ export default function Profile() {
             )}
           </TabsContent>
 
+          {/* Likes Tab */}
           <TabsContent value="likes">
             <Card>
               <CardContent className="p-12 text-center">
@@ -288,7 +274,8 @@ export default function Profile() {
             </Card>
           </TabsContent>
 
-          {data.isOwnProfile && spotifyConnected && (
+          {/* Spotify Tab */}
+          {data.isOwnProfile && isSpotifyConnected && (
             <TabsContent value="spotify" className="space-y-6">
               {/* Top Tracks */}
               {spotifyData.topTracks?.items && (
@@ -299,18 +286,10 @@ export default function Profile() {
                       {spotifyData.topTracks.items.slice(0, 5).map((track: any, i: number) => (
                         <div key={track.id} className="flex items-center space-x-3">
                           <span className="text-sm text-muted-foreground w-6">{i + 1}</span>
-                          {track.album?.images?.[2] && (
-                            <img
-                              src={track.album.images[2].url}
-                              alt="Album"
-                              className="h-10 w-10 rounded"
-                            />
-                          )}
+                          {track.album?.images?.[2] && <img src={track.album.images[2].url} alt="Album" className="h-10 w-10 rounded" />}
                           <div className="flex-1">
                             <p className="text-sm font-medium">{track.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {track.artists?.map((a: any) => a.name).join(", ")}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{track.artists?.map((a: any) => a.name).join(", ")}</p>
                           </div>
                         </div>
                       ))}
@@ -327,13 +306,7 @@ export default function Profile() {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {spotifyData.topArtists.items.slice(0, 6).map((artist: any) => (
                         <div key={artist.id} className="text-center">
-                          {artist.images?.[1] && (
-                            <img
-                              src={artist.images[1].url}
-                              alt={artist.name}
-                              className="h-20 w-20 rounded-full mx-auto mb-2"
-                            />
-                          )}
+                          {artist.images?.[1] && <img src={artist.images[1].url} alt={artist.name} className="h-20 w-20 rounded-full mx-auto mb-2" />}
                           <p className="text-sm font-medium">{artist.name}</p>
                         </div>
                       ))}
@@ -348,3 +321,4 @@ export default function Profile() {
     </div>
   );
 }
+  

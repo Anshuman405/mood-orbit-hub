@@ -68,17 +68,26 @@ export async function getRecentlyPlayed(userId: string, limit = 20) {
 export function getSpotifyAuthUrl(userId: string): string {
   const scopes = [
     "user-read-email",
-    "user-read-private", 
+    "user-read-private",
     "user-top-read",
     "user-read-recently-played",
     "playlist-read-private",
     "user-library-read"
   ].join(" ");
 
+  // 👇 Pick redirect base depending on whether we're in dev or prod
+  const redirectBase =
+    import.meta.env.MODE === "development"
+      ? "http://localhost:8080"
+      : "https://looply-weld.vercel.app";
+
+  // Spotify will redirect here after auth
+  const redirectUri = `${redirectBase}/api/spotify-auth`;
+
   const params = new URLSearchParams({
     client_id: "5b744144e87d4b1bbbe3e0b6281f8570",
     response_type: "code",
-    redirect_uri: `https://kfvovretlqyxvlmlyonv.supabase.co/functions/v1/spotify-auth`,
+    redirect_uri: redirectUri,
     scope: scopes,
     state: userId,
   });
