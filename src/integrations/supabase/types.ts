@@ -14,6 +14,166 @@ export type Database = {
   }
   public: {
     Tables: {
+      artworks: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          file_size: number | null
+          file_type: string
+          file_url: string
+          height: number | null
+          id: string
+          post_id: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          height?: number | null
+          id?: string
+          post_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          height?: number | null
+          id?: string
+          post_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artworks_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_participations: {
+        Row: {
+          challenge_id: string | null
+          created_at: string | null
+          id: string
+          post_id: string | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id?: string | null
+          created_at?: string | null
+          id?: string
+          post_id?: string | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string | null
+          created_at?: string | null
+          id?: string
+          post_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_participations_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_participations_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          challenge_type: string | null
+          created_at: string | null
+          description: string | null
+          ends_at: string
+          id: string
+          is_active: boolean | null
+          song_id: string | null
+          starts_at: string
+          title: string
+        }
+        Insert: {
+          challenge_type?: string | null
+          created_at?: string | null
+          description?: string | null
+          ends_at?: string
+          id?: string
+          is_active?: boolean | null
+          song_id?: string | null
+          starts_at?: string
+          title: string
+        }
+        Update: {
+          challenge_type?: string | null
+          created_at?: string | null
+          description?: string | null
+          ends_at?: string
+          id?: string
+          is_active?: boolean | null
+          song_id?: string | null
+          starts_at?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenges_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followers: {
+        Row: {
+          created_at: string | null
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       follows: {
         Row: {
           created_at: string
@@ -275,6 +435,7 @@ export type Database = {
       posts: {
         Row: {
           caption: string | null
+          challenge_id: string | null
           created_at: string
           id: string
           song_id: string
@@ -284,6 +445,7 @@ export type Database = {
         }
         Insert: {
           caption?: string | null
+          challenge_id?: string | null
           created_at?: string
           id?: string
           song_id: string
@@ -293,6 +455,7 @@ export type Database = {
         }
         Update: {
           caption?: string | null
+          challenge_id?: string | null
           created_at?: string
           id?: string
           song_id?: string
@@ -301,6 +464,13 @@ export type Database = {
           visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "posts_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "posts_song_id_fkey"
             columns: ["song_id"]
@@ -317,8 +487,11 @@ export type Database = {
           created_at: string | null
           email: string
           favorite_song_id: string | null
+          follower_count: number | null
+          following_count: number | null
           id: string
           name: string | null
+          post_count: number | null
           updated_at: string | null
           user_id: string
           username: string | null
@@ -329,8 +502,11 @@ export type Database = {
           created_at?: string | null
           email: string
           favorite_song_id?: string | null
+          follower_count?: number | null
+          following_count?: number | null
           id?: string
           name?: string | null
+          post_count?: number | null
           updated_at?: string | null
           user_id: string
           username?: string | null
@@ -341,8 +517,11 @@ export type Database = {
           created_at?: string | null
           email?: string
           favorite_song_id?: string | null
+          follower_count?: number | null
+          following_count?: number | null
           id?: string
           name?: string | null
+          post_count?: number | null
           updated_at?: string | null
           user_id?: string
           username?: string | null
@@ -440,6 +619,39 @@ export type Database = {
         }
         Relationships: []
       }
+      spotify_connections: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          refresh_token: string
+          scope: string | null
+          token_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          refresh_token: string
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          refresh_token?: string
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -534,6 +746,7 @@ export type Database = {
         }
         Returns: {
           caption: string | null
+          challenge_id: string | null
           created_at: string
           id: string
           song_id: string
@@ -557,8 +770,11 @@ export type Database = {
           created_at: string | null
           email: string
           favorite_song_id: string | null
+          follower_count: number | null
+          following_count: number | null
           id: string
           name: string | null
+          post_count: number | null
           updated_at: string | null
           user_id: string
           username: string | null
@@ -568,9 +784,25 @@ export type Database = {
         Args: { clerk_user_id: string }
         Returns: string
       }
+      join_challenge: {
+        Args: { _user_id: string; _challenge_id: string; _post_id: string }
+        Returns: {
+          challenge_id: string | null
+          created_at: string | null
+          id: string
+          post_id: string | null
+          user_id: string
+        }
+      }
       set_current_user_id: {
         Args: { _user_id: string }
         Returns: undefined
+      }
+      toggle_follow: {
+        Args: { _follower_id: string; _following_id: string }
+        Returns: {
+          action: string
+        }[]
       }
       toggle_like: {
         Args: { _user_id: string; _post_id: string }

@@ -2,3 +2,12 @@ project_id = "kfvovretlqyxvlmlyonv"
 
 [functions.spotify-search]
 verify_jwt = false
+
+[functions.spotify-auth]
+verify_jwt = false
+
+[functions.spotify-refresh]
+verify_jwt = false
+
+[functions.ai-ideas]
+verify_jwt = false
