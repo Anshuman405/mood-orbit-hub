@@ -11,13 +11,43 @@ import { Search, TrendingUp, Music, Image, Video, Headphones } from "lucide-reac
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 
-const fetchTrendingPosts = async () => {
+interface Post {
+  id: string;
+  caption: string;
+  created_at: string;
+  user_id: string;
+  songs?: {
+    id: string;
+    title: string;
+    artist: string;
+    provider_song_id: string;
+  };
+}
+
+interface Artwork {
+  id: string;
+  title: string;
+  description: string;
+  file_url: string;
+  file_type: string;
+  user_id: string;
+  post_id: string;
+  created_at: string;
+}
+
+interface Profile {
+  user_id: string;
+  username: string;
+  name: string;
+  avatar_url: string;
+}
+
+const fetchTrendingPosts = async (): Promise<Post[]> => {
   const { data, error } = await supabase
     .from("posts")
     .select(`
       *,
       songs (*),
-      profiles (username, name, avatar_url),
       post_likes (id)
     `)
     .order("created_at", { ascending: false })
@@ -29,13 +59,23 @@ const fetchTrendingPosts = async () => {
   return (data || []).sort((a, b) => (b.post_likes?.length || 0) - (a.post_likes?.length || 0));
 };
 
-const fetchTrendingArtworks = async () => {
+const fetchTrendingArtworks = async (): Promise<Artwork[]> => {
   const { data, error } = await supabase
     .from("artworks")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+  return data || [];
+};
+
+const fetchNewContent = async (): Promise<Post[]> => {
+  const { data, error } = await supabase
+    .from("posts")
     .select(`
       *,
-      posts (*),
-      profiles:user_id (username, name, avatar_url)
+      songs (*)
     `)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -44,16 +84,13 @@ const fetchTrendingArtworks = async () => {
   return data || [];
 };
 
-const fetchNewContent = async () => {
+const fetchProfiles = async (userIds: string[]): Promise<Profile[]> => {
+  if (userIds.length === 0) return [];
+  
   const { data, error } = await supabase
-    .from("posts")
-    .select(`
-      *,
-      songs (*),
-      profiles (username, name, avatar_url)
-    `)
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .from("profiles")
+    .select("user_id, username, name, avatar_url")
+    .in("user_id", userIds);
 
   if (error) throw error;
   return data || [];
@@ -83,6 +120,19 @@ export default function Discover() {
     queryKey: ["new-content"],
     queryFn: fetchNewContent
   });
+
+  // Fetch profiles for posts
+  const postUserIds = [...(trendingPosts?.map(p => p.user_id) || []), ...(newContent?.map(p => p.user_id) || [])];
+  const artworkUserIds = trendingArtworks?.map(a => a.user_id) || [];
+  const allUserIds = [...new Set([...postUserIds, ...artworkUserIds])];
+
+  const { data: profiles } = useQuery({
+    queryKey: ["profiles", allUserIds],
+    queryFn: () => fetchProfiles(allUserIds),
+    enabled: allUserIds.length > 0
+  });
+
+  const getProfile = (userId: string) => profiles?.find(p => p.user_id === userId);
 
   const getFileTypeIcon = (type: string) => {
     switch (type) {
@@ -165,63 +215,66 @@ export default function Discover() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {trendingPosts?.map((post, index) => (
-                  <motion.div
-                    key={post.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <span className="text-sm font-bold text-primary">#{index + 1}</span>
-                            {post.profiles?.avatar_url && (
-                              <img
-                                src={post.profiles.avatar_url}
-                                alt="Avatar"
-                                className="h-8 w-8 rounded-full"
-                              />
-                            )}
-                            <div>
-                              <p className="text-sm font-medium">
-                                {post.profiles?.username || post.profiles?.name || "User"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {post.post_likes?.length || 0} likes
-                              </p>
+                {trendingPosts?.map((post, index) => {
+                  const profile = getProfile(post.user_id);
+                  return (
+                    <motion.div
+                      key={post.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-sm font-bold text-primary">#{index + 1}</span>
+                              {profile?.avatar_url && (
+                                <img
+                                  src={profile.avatar_url}
+                                  alt="Avatar"
+                                  className="h-8 w-8 rounded-full"
+                                />
+                              )}
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {profile?.username || profile?.name || "User"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(post as any).post_likes?.length || 0} likes
+                                </p>
+                              </div>
                             </div>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to={`/post/${post.id}`}>View</Link>
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/post/${post.id}`}>View</Link>
-                          </Button>
-                        </div>
 
-                        {post.songs && (
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {post.songs.artist} — {post.songs.title}
-                            </p>
-                            <iframe
-                              src={`https://open.spotify.com/embed/track/${post.songs.provider_song_id}`}
-                              width="100%"
-                              height="152"
-                              frameBorder="0"
-                              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                              loading="lazy"
-                              className="rounded-lg"
-                            />
-                          </div>
-                        )}
+                          {post.songs && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {post.songs.artist} — {post.songs.title}
+                              </p>
+                              <iframe
+                                src={`https://open.spotify.com/embed/track/${post.songs.provider_song_id}`}
+                                width="100%"
+                                height="152"
+                                frameBorder="0"
+                                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                                loading="lazy"
+                                className="rounded-lg"
+                              />
+                            </div>
+                          )}
 
-                        {post.caption && (
-                          <p className="mt-3 text-sm">{post.caption}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                          {post.caption && (
+                            <p className="mt-3 text-sm">{post.caption}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -246,78 +299,81 @@ export default function Discover() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {trendingArtworks?.map((artwork, index) => (
-                  <motion.div
-                    key={artwork.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-square relative">
-                        {artwork.file_type === "image" && (
-                          <img
-                            src={artwork.file_url}
-                            alt={artwork.title || "Artwork"}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                        {artwork.file_type === "video" && (
-                          <video
-                            src={artwork.file_url}
-                            className="w-full h-full object-cover"
-                            muted
-                            loop
-                            onMouseEnter={(e) => e.currentTarget.play()}
-                            onMouseLeave={(e) => e.currentTarget.pause()}
-                          />
-                        )}
-                        {artwork.file_type === "audio" && (
-                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                            <Headphones className="h-12 w-12 text-primary" />
-                          </div>
-                        )}
-                        <div className="absolute top-2 right-2">
-                          {getFileTypeIcon(artwork.file_type)}
-                        </div>
-                      </div>
-                      
-                      <CardContent className="p-3">
-                        <div className="flex items-center space-x-2 mb-2">
-                          {artwork.profiles?.avatar_url && (
+                {trendingArtworks?.map((artwork, index) => {
+                  const profile = getProfile(artwork.user_id);
+                  return (
+                    <motion.div
+                      key={artwork.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                        <div className="aspect-square relative">
+                          {artwork.file_type === "image" && (
                             <img
-                              src={artwork.profiles.avatar_url}
-                              alt="Avatar"
-                              className="h-6 w-6 rounded-full"
+                              src={artwork.file_url}
+                              alt={artwork.title || "Artwork"}
+                              className="w-full h-full object-cover"
                             />
                           )}
-                          <p className="text-sm font-medium">
-                            {artwork.profiles?.username || artwork.profiles?.name || "User"}
-                          </p>
+                          {artwork.file_type === "video" && (
+                            <video
+                              src={artwork.file_url}
+                              className="w-full h-full object-cover"
+                              muted
+                              loop
+                              onMouseEnter={(e) => e.currentTarget.play()}
+                              onMouseLeave={(e) => e.currentTarget.pause()}
+                            />
+                          )}
+                          {artwork.file_type === "audio" && (
+                            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                              <Headphones className="h-12 w-12 text-primary" />
+                            </div>
+                          )}
+                          <div className="absolute top-2 right-2">
+                            {getFileTypeIcon(artwork.file_type)}
+                          </div>
                         </div>
                         
-                        {artwork.title && (
-                          <p className="text-sm font-medium mb-1">{artwork.title}</p>
-                        )}
-                        
-                        {artwork.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {artwork.description}
-                          </p>
-                        )}
+                        <CardContent className="p-3">
+                          <div className="flex items-center space-x-2 mb-2">
+                            {profile?.avatar_url && (
+                              <img
+                                src={profile.avatar_url}
+                                alt="Avatar"
+                                className="h-6 w-6 rounded-full"
+                              />
+                            )}
+                            <p className="text-sm font-medium">
+                              {profile?.username || profile?.name || "User"}
+                            </p>
+                          </div>
+                          
+                          {artwork.title && (
+                            <p className="text-sm font-medium mb-1">{artwork.title}</p>
+                          )}
+                          
+                          {artwork.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {artwork.description}
+                            </p>
+                          )}
 
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full mt-3" 
-                          asChild
-                        >
-                          <Link to={`/post/${artwork.post_id}`}>View Post</Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full mt-3" 
+                            asChild
+                          >
+                            <Link to={`/post/${artwork.post_id}`}>View Post</Link>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -342,62 +398,65 @@ export default function Discover() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {newContent?.map((post, index) => (
-                  <motion.div
-                    key={post.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            {post.profiles?.avatar_url && (
-                              <img
-                                src={post.profiles.avatar_url}
-                                alt="Avatar"
-                                className="h-8 w-8 rounded-full"
-                              />
-                            )}
-                            <div>
-                              <p className="text-sm font-medium">
-                                {post.profiles?.username || post.profiles?.name || "User"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(post.created_at).toLocaleDateString()}
-                              </p>
+                {newContent?.map((post, index) => {
+                  const profile = getProfile(post.user_id);
+                  return (
+                    <motion.div
+                      key={post.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              {profile?.avatar_url && (
+                                <img
+                                  src={profile.avatar_url}
+                                  alt="Avatar"
+                                  className="h-8 w-8 rounded-full"
+                                />
+                              )}
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {profile?.username || profile?.name || "User"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(post.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
                             </div>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to={`/post/${post.id}`}>View</Link>
+                            </Button>
                           </div>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/post/${post.id}`}>View</Link>
-                          </Button>
-                        </div>
 
-                        {post.songs && (
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {post.songs.artist} — {post.songs.title}
-                            </p>
-                            <iframe
-                              src={`https://open.spotify.com/embed/track/${post.songs.provider_song_id}`}
-                              width="100%"
-                              height="152"
-                              frameBorder="0"
-                              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                              loading="lazy"
-                              className="rounded-lg"
-                            />
-                          </div>
-                        )}
+                          {post.songs && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {post.songs.artist} — {post.songs.title}
+                              </p>
+                              <iframe
+                                src={`https://open.spotify.com/embed/track/${post.songs.provider_song_id}`}
+                                width="100%"
+                                height="152"
+                                frameBorder="0"
+                                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                                loading="lazy"
+                                className="rounded-lg"
+                              />
+                            </div>
+                          )}
 
-                        {post.caption && (
-                          <p className="mt-3 text-sm">{post.caption}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                          {post.caption && (
+                            <p className="mt-3 text-sm">{post.caption}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
