@@ -75,17 +75,11 @@ export function getSpotifyAuthUrl(userId: string): string {
     "user-library-read"
   ].join(" ");
 
-  // 👇 Pick redirect base depending on whether we're in dev or prod
-  const redirectBase =
-    import.meta.env.MODE === "development"
-      ? "http://localhost:8080"
-      : "https://looply-weld.vercel.app";
-
-  // Spotify will redirect here after auth
-  const redirectUri = `${redirectBase}/api/spotify-auth`;
+  // Use the **fixed redirect URI** that is registered in Spotify dashboard
+  const redirectUri = "https://kfvovretlqyxvlmlyonv.supabase.co/functions/v1/spotify-auth";
 
   const params = new URLSearchParams({
-    client_id: "5b744144e87d4b1bbbe3e0b6281f8570",
+    client_id: "5b744144e87d4b1bbbe3e0b6281f8570", // your Spotify client ID
     response_type: "code",
     redirect_uri: redirectUri,
     scope: scopes,
@@ -94,6 +88,7 @@ export function getSpotifyAuthUrl(userId: string): string {
 
   return `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
+
 
 export async function checkSpotifyConnection(userId: string): Promise<boolean> {
   try {
