@@ -7,8 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClerkSupabaseSync } from "@/hooks/useClerkSupabaseSync";
-import { getUserTopTracks, getUserTopArtists, getRecentlyPlayed, getSpotifyAuthUrl } from "@/lib/spotify";
-import { Heart, Music, Users, Upload, ExternalLink } from "lucide-react";
+import {
+  getUserTopTracks,
+  getUserTopArtists,
+  getRecentlyPlayed,
+  getSpotifyAuthUrl
+} from "@/lib/spotify";
+import { Heart, Music, Users, Upload, ExternalLink, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "@/components/ui/use-toast";
 
@@ -21,17 +26,15 @@ interface ProfileData {
 }
 
 const fetchProfile = async (userId: string, currentUserId?: string): Promise<ProfileData> => {
-  const [
-    { data: profile },
-    { data: posts },
-    { data: artworks },
-    { data: following }
-  ] = await Promise.all([
-    supabase.from("profiles").select("*").eq("user_id", userId).single(),
-    supabase.from("posts").select(`*, songs (*)`).eq("user_id", userId).order("created_at", { ascending: false }),
-    supabase.from("artworks").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-    currentUserId ? supabase.from("followers").select("id").eq("follower_id", currentUserId).eq("following_id", userId).maybeSingle() : { data: null }
-  ]);
+  const [{ data: profile }, { data: posts }, { data: artworks }, { data: following }] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("user_id", userId).single(),
+      supabase.from("posts").select(`*, songs (*)`).eq("user_id", userId).order("created_at", { ascending: false }),
+      supabase.from("artworks").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+      currentUserId
+        ? supabase.from("followers").select("id").eq("follower_id", currentUserId).eq("following_id", userId).maybeSingle()
+        : { data: null }
+    ]);
 
   return {
     profile,
@@ -48,8 +51,11 @@ export default function Profile() {
   const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [spotifyData, setSpotifyData] = useState<any>({});
   const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  const [spotifyUsername, setSpotifyUsername] = useState<string | null>(null);
+  const [isButtonAnimating, setIsButtonAnimating] = useState(false);
 
   const profileId = id || user?.id;
 
@@ -59,36 +65,40 @@ export default function Profile() {
     enabled: !!profileId
   });
 
-  // Check Spotify connection for the current user
-  const checkSpotifyConnection = async () => {
-    if (!profileId) return;
+  // Check Spotify connection
+  const checkSpotifyConnection = async (profileIdToCheck: string) => {
     const { data: connection } = await supabase
       .from("spotify_connections")
-      .select("user_id")
-      .eq("user_id", profileId)
+      .select("user_id, spotify_username")
+      .eq("user_id", profileIdToCheck)
       .maybeSingle();
     setIsSpotifyConnected(!!connection);
+    if (connection?.spotify_username) setSpotifyUsername(connection.spotify_username);
   };
 
   useEffect(() => {
-    checkSpotifyConnection();
+    if (!profileId) return;
+    checkSpotifyConnection(profileId);
   }, [profileId]);
 
-  // Handle Spotify redirect toast
+  // Handle Spotify redirect toast & animate button
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("spotify") === "connected") {
+      const name = params.get("name") || spotifyUsername || "your account";
       toast({
         title: "Spotify Connected",
-        description: `Connected as ${params.get("name") || "your account"}`,
+        description: `Connected as ${name}`
       });
+      setIsSpotifyConnected(true);
+      setIsButtonAnimating(true);
+      setTimeout(() => setIsButtonAnimating(false), 1500);
       navigate(location.pathname, { replace: true });
-      checkSpotifyConnection();
       refetch();
+      checkSpotifyConnection(profileId!);
     }
-  }, [location.search, navigate, refetch]);
+  }, [location.search, navigate, refetch, spotifyUsername, profileId]);
 
-  // Set page title
   useEffect(() => {
     if (data?.profile) {
       document.title = `${data.profile.username || data.profile.name || "User"} | Looply`;
@@ -110,14 +120,16 @@ export default function Profile() {
 
   const handleFollow = async () => {
     if (!user || !profileId) return;
-    await supabase.rpc("toggle_follow", { _follower_id: user.id, _following_id: profileId });
+    await supabase.rpc("toggle_follow", {
+      _follower_id: user.id,
+      _following_id: profileId
+    });
     refetch();
   };
 
   const connectSpotify = () => {
-    if (user?.id) {
-      window.location.href = getSpotifyAuthUrl(user.id);
-    }
+    if (!user?.id) return;
+    window.location.href = getSpotifyAuthUrl(user.id);
   };
 
   if (isLoading) {
@@ -148,11 +160,19 @@ export default function Profile() {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
               {data.profile.avatar_url && (
-                <img src={data.profile.avatar_url} alt="Profile" className="h-24 w-24 rounded-full" />
+                <img
+                  src={data.profile.avatar_url}
+                  alt="Profile"
+                  className="h-24 w-24 rounded-full"
+                />
               )}
               <div className="flex-1">
-                <h1 className="text-2xl font-bold">{data.profile.username || data.profile.name || "User"}</h1>
-                {data.profile.bio && <p className="text-muted-foreground mt-2">{data.profile.bio}</p>}
+                <h1 className="text-2xl font-bold">
+                  {data.profile.username || data.profile.name || "User"}
+                </h1>
+                {data.profile.bio && (
+                  <p className="text-muted-foreground mt-2">{data.profile.bio}</p>
+                )}
                 <div className="flex items-center space-x-6 mt-4">
                   <div className="text-center">
                     <p className="text-lg font-semibold">{data.profile.post_count || 0}</p>
@@ -168,23 +188,40 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
+
               <div className="flex flex-col space-y-2">
-                {!data.isOwnProfile && user && (
-                  <Button onClick={handleFollow} variant={data.isFollowing ? "outline" : "default"}>
+                {data.isOwnProfile ? (
+                  <motion.div
+                    initial={{ scale: 1 }}
+                    animate={{ scale: isButtonAnimating ? 1.1 : 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Button
+                      onClick={connectSpotify}
+                      variant={isSpotifyConnected ? "outline" : "default"}
+                      disabled={isSpotifyConnected}
+                    >
+                      {isSpotifyConnected ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2 text-green-500" />
+                          Spotify Connected
+                        </>
+                      ) : (
+                        <>
+                          <Music className="h-4 w-4 mr-2" />
+                          Connect Spotify
+                        </>
+                      )}
+                    </Button>
+                  </motion.div>
+                ) : user ? (
+                  <Button
+                    onClick={handleFollow}
+                    variant={data.isFollowing ? "outline" : "default"}
+                  >
                     {data.isFollowing ? "Unfollow" : "Follow"}
                   </Button>
-                )}
-
-                {data.isOwnProfile && (
-                  <Button
-                    onClick={connectSpotify}
-                    variant={isSpotifyConnected ? "outline" : "default"}
-                    disabled={isSpotifyConnected}
-                  >
-                    <Music className="h-4 w-4 mr-2" />
-                    {isSpotifyConnected ? "Spotify Connected" : "Connect Spotify"}
-                  </Button>
-                )}
+                ) : null}
               </div>
             </div>
           </CardContent>
@@ -196,7 +233,9 @@ export default function Profile() {
             <TabsTrigger value="posts">Posts</TabsTrigger>
             <TabsTrigger value="artworks">Artworks</TabsTrigger>
             <TabsTrigger value="likes">Likes</TabsTrigger>
-            {data.isOwnProfile && isSpotifyConnected && <TabsTrigger value="spotify">Spotify</TabsTrigger>}
+            {data.isOwnProfile && isSpotifyConnected && (
+              <TabsTrigger value="spotify">Spotify</TabsTrigger>
+            )}
           </TabsList>
 
           {/* Posts Tab */}
@@ -211,12 +250,20 @@ export default function Profile() {
             ) : (
               <div className="grid gap-4">
                 {data.posts.map((post) => (
-                  <motion.div key={post.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
                     <Card className="cursor-pointer hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-muted-foreground">{post.songs?.artist} — {post.songs?.title}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(post.created_at).toLocaleDateString()}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {post.songs?.artist} — {post.songs?.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </p>
                         </div>
                         {post.caption && <p className="mb-3">{post.caption}</p>}
                         <Button variant="outline" size="sm" asChild>
@@ -245,18 +292,38 @@ export default function Profile() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.artworks.map((artwork) => (
-                  <motion.div key={artwork.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                  <motion.div
+                    key={artwork.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
                     <Card className="overflow-hidden">
                       <div className="aspect-square">
-                        {artwork.file_type === "image" && <img src={artwork.file_url} alt={artwork.title || "Artwork"} className="w-full h-full object-cover" />}
-                        {artwork.file_type === "video" && <video src={artwork.file_url} className="w-full h-full object-cover" controls />}
+                        {artwork.file_type === "image" && (
+                          <img
+                            src={artwork.file_url}
+                            alt={artwork.title || "Artwork"}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        {artwork.file_type === "video" && (
+                          <video
+                            src={artwork.file_url}
+                            className="w-full h-full object-cover"
+                            controls
+                          />
+                        )}
                         {artwork.file_type === "audio" && (
                           <div className="w-full h-full bg-muted flex items-center justify-center">
                             <Music className="h-12 w-12 text-muted-foreground" />
                           </div>
                         )}
                       </div>
-                      {artwork.title && <CardContent className="p-3"><p className="text-sm font-medium">{artwork.title}</p></CardContent>}
+                      {artwork.title && (
+                        <CardContent className="p-3">
+                          <p className="text-sm font-medium">{artwork.title}</p>
+                        </CardContent>
+                      )}
                     </Card>
                   </motion.div>
                 ))}
@@ -277,7 +344,6 @@ export default function Profile() {
           {/* Spotify Tab */}
           {data.isOwnProfile && isSpotifyConnected && (
             <TabsContent value="spotify" className="space-y-6">
-              {/* Top Tracks */}
               {spotifyData.topTracks?.items && (
                 <Card>
                   <CardContent className="p-6">
@@ -286,7 +352,9 @@ export default function Profile() {
                       {spotifyData.topTracks.items.slice(0, 5).map((track: any, i: number) => (
                         <div key={track.id} className="flex items-center space-x-3">
                           <span className="text-sm text-muted-foreground w-6">{i + 1}</span>
-                          {track.album?.images?.[2] && <img src={track.album.images[2].url} alt="Album" className="h-10 w-10 rounded" />}
+                          {track.album?.images?.[2] && (
+                            <img src={track.album.images[2].url} alt="Album" className="h-10 w-10 rounded" />
+                          )}
                           <div className="flex-1">
                             <p className="text-sm font-medium">{track.name}</p>
                             <p className="text-xs text-muted-foreground">{track.artists?.map((a: any) => a.name).join(", ")}</p>
@@ -298,7 +366,6 @@ export default function Profile() {
                 </Card>
               )}
 
-              {/* Top Artists */}
               {spotifyData.topArtists?.items && (
                 <Card>
                   <CardContent className="p-6">
@@ -306,7 +373,9 @@ export default function Profile() {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {spotifyData.topArtists.items.slice(0, 6).map((artist: any) => (
                         <div key={artist.id} className="text-center">
-                          {artist.images?.[1] && <img src={artist.images[1].url} alt={artist.name} className="h-20 w-20 rounded-full mx-auto mb-2" />}
+                          {artist.images?.[1] && (
+                            <img src={artist.images[1].url} alt={artist.name} className="h-20 w-20 rounded-full mx-auto mb-2" />
+                          )}
                           <p className="text-sm font-medium">{artist.name}</p>
                         </div>
                       ))}
@@ -321,4 +390,3 @@ export default function Profile() {
     </div>
   );
 }
-  

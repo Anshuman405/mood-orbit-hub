@@ -56,7 +56,7 @@ serve(async (req) => {
     });
 
     // Redirect to dev or prod frontend
-    const redirectBase = DEV_FRONTEND_URL;
+    const redirectBase = state.includes("localhost") ? DEV_FRONTEND_URL : PROD_FRONTEND_URL;
     const redirectUrl = `${redirectBase}/profile/${encodeURIComponent(state)}?spotify=connected`;
 
     return Response.redirect(redirectUrl, 302);
