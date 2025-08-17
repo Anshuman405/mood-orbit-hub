@@ -161,14 +161,18 @@ export default function PostDetail() {
                 {/* User Info */}
                 <div className="flex items-center space-x-3 mb-4">
                   {data.profile?.avatar_url && (
-                    <img 
-                      src={data.profile.avatar_url} 
-                      alt="Avatar" 
-                      className="h-10 w-10 rounded-full"
-                    />
+                    <Link to={`/profile/${data.profile.user_id}`}>
+                      <img 
+                        src={data.profile.avatar_url} 
+                        alt="Avatar" 
+                        className="h-10 w-10 rounded-full"
+                      />
+                    </Link>
                   )}
                   <div>
-                    <p className="font-medium">{data.profile?.username || data.profile?.name || "User"}</p>
+                    <p className="font-medium">
+                      <Link to={`/profile/${data.profile.user_id}`}>{data.profile?.username || data.profile?.name || "User"}</Link>
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       {new Date(data.post.created_at).toLocaleDateString()}
                     </p>

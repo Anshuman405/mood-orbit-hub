@@ -57,6 +57,7 @@ export default function Profile() {
   const [spotifyUsername, setSpotifyUsername] = useState<string | null>(null);
   const [isButtonAnimating, setIsButtonAnimating] = useState(false);
 
+  // Use id from route if present, otherwise fallback to logged-in user
   const profileId = id || user?.id;
 
   const { data, isLoading, refetch } = useQuery({
@@ -69,19 +70,19 @@ export default function Profile() {
   const checkSpotifyConnection = async (profileIdToCheck: string) => {
     const { data: connection } = await supabase
       .from("spotify_connections")
-      .select("user_id, spotify_username")
+      .select("user_id")
       .eq("user_id", profileIdToCheck)
       .maybeSingle();
     setIsSpotifyConnected(!!connection);
-    if (connection?.spotify_username) setSpotifyUsername(connection.spotify_username);
+    setSpotifyUsername(null); // No username available in table
   };
 
   useEffect(() => {
-    if (!profileId) return;
-    checkSpotifyConnection(profileId);
+    if (profileId) {
+      checkSpotifyConnection(profileId);
+    }
   }, [profileId]);
 
-  // Handle Spotify redirect toast & animate button
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("spotify") === "connected") {
@@ -112,6 +113,15 @@ export default function Profile() {
         getUserTopTracks(user.id, 10),
         getUserTopArtists(user.id, 10),
         getRecentlyPlayed(user.id, 10)
+      ]).then(([topTracks, topArtists, recentlyPlayed]) => {
+        setSpotifyData({ topTracks, topArtists, recentlyPlayed });
+      });
+    } else if (!data?.isOwnProfile && isSpotifyConnected && profileId) {
+      // If viewing another user's profile and they have Spotify connected, fetch their public Spotify data if needed
+      Promise.all([
+        getUserTopTracks(profileId, 10),
+        getUserTopArtists(profileId, 10),
+        getRecentlyPlayed(profileId, 10)
       ]).then(([topTracks, topArtists, recentlyPlayed]) => {
         setSpotifyData({ topTracks, topArtists, recentlyPlayed });
       });

@@ -28,7 +28,8 @@ function AppContent() {
         <Route path="/feed" element={<Feed />} />
         <Route path="/post" element={<PostSong />} />
         <Route path="/post/:id" element={<PostDetail />} />
-        <Route path="/profile/*" element={<Profile />} />
+        <Route path="/profile/:id" element={<Profile />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/discover" element={<Discover />} />
         <Route path="/upload" element={<Upload />} />
         <Route path="/challenges" element={<div className="p-8 text-center">Challenges coming soon!</div>} />

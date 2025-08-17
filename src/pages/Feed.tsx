@@ -83,10 +83,12 @@ const Feed: React.FC = () => {
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-3">
                   {profile?.avatar_url && (
-                    <img src={profile.avatar_url} alt={`${profile.username || profile.name || "user"} avatar`} className="h-8 w-8 rounded-full" loading="lazy" />
+                    <Link to={`/profile/${profile.user_id}`}><img src={profile.avatar_url} alt={`${profile.username || profile.name || "user"} avatar`} className="h-8 w-8 rounded-full" loading="lazy" /></Link>
                   )}
                   <div>
-                    <div className="text-sm font-medium">{profile?.username || profile?.name || "@user"}</div>
+                    <div className="text-sm font-medium">
+                      <Link to={`/profile/${profile.user_id}`}>{profile?.username || profile?.name || "@user"}</Link>
+                    </div>
                     <div className="text-xs text-muted-foreground">{new Date(post.created_at).toLocaleString()}</div>
                   </div>
                 </div>

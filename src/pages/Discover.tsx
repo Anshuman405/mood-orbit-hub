@@ -22,6 +22,7 @@ interface Post {
     artist: string;
     provider_song_id: string;
   };
+  post_likes?: { id: string }[];
 }
 
 interface Artwork {
@@ -45,17 +46,10 @@ interface Profile {
 const fetchTrendingPosts = async (): Promise<Post[]> => {
   const { data, error } = await supabase
     .from("posts")
-    .select(`
-      *,
-      songs (*),
-      post_likes (id)
-    `)
+    .select(`*, songs (*), post_likes (id)`)
     .order("created_at", { ascending: false })
     .limit(20);
-
   if (error) throw error;
-
-  // Sort by like count
   return (data || []).sort((a, b) => (b.post_likes?.length || 0) - (a.post_likes?.length || 0));
 };
 
@@ -65,7 +59,6 @@ const fetchTrendingArtworks = async (): Promise<Artwork[]> => {
     .select("*")
     .order("created_at", { ascending: false })
     .limit(20);
-
   if (error) throw error;
   return data || [];
 };
@@ -73,13 +66,9 @@ const fetchTrendingArtworks = async (): Promise<Artwork[]> => {
 const fetchNewContent = async (): Promise<Post[]> => {
   const { data, error } = await supabase
     .from("posts")
-    .select(`
-      *,
-      songs (*)
-    `)
+    .select(`*, songs (*)`)
     .order("created_at", { ascending: false })
     .limit(20);
-
   if (error) throw error;
   return data || [];
 };
@@ -219,7 +208,7 @@ export default function Discover() {
                   const profile = getProfile(post.user_id);
                   return (
                     <motion.div
-                      key={post.id}
+                      key={post.id ?? index}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
@@ -229,19 +218,23 @@ export default function Discover() {
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center space-x-3">
                               <span className="text-sm font-bold text-primary">#{index + 1}</span>
-                              {profile?.avatar_url && (
-                                <img
-                                  src={profile.avatar_url}
-                                  alt="Avatar"
-                                  className="h-8 w-8 rounded-full"
-                                />
+                              {profile && profile.avatar_url && (
+                                <Link to={`/profile/${profile.user_id}`}>
+                                  <img
+                                    src={profile.avatar_url}
+                                    alt="Avatar"
+                                    className="h-8 w-8 rounded-full"
+                                  />
+                                </Link>
                               )}
                               <div>
                                 <p className="text-sm font-medium">
-                                  {profile?.username || profile?.name || "User"}
+                                  {profile ? (
+                                    <Link to={`/profile/${profile.user_id}`}>{profile.username || profile.name || "User"}</Link>
+                                  ) : "User"}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {(post as any).post_likes?.length || 0} likes
+                                  {Array.isArray(post.post_likes) ? post.post_likes.length : 0} likes
                                 </p>
                               </div>
                             </div>
@@ -249,7 +242,6 @@ export default function Discover() {
                               <Link to={`/post/${post.id}`}>View</Link>
                             </Button>
                           </div>
-
                           {post.songs && (
                             <div>
                               <p className="text-sm text-muted-foreground mb-2">
@@ -266,7 +258,6 @@ export default function Discover() {
                               />
                             </div>
                           )}
-
                           {post.caption && (
                             <p className="mt-3 text-sm">{post.caption}</p>
                           )}
@@ -303,7 +294,7 @@ export default function Discover() {
                   const profile = getProfile(artwork.user_id);
                   return (
                     <motion.div
-                      key={artwork.id}
+                      key={artwork.id ?? index}
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.1 }}
@@ -336,31 +327,31 @@ export default function Discover() {
                             {getFileTypeIcon(artwork.file_type)}
                           </div>
                         </div>
-                        
                         <CardContent className="p-3">
                           <div className="flex items-center space-x-2 mb-2">
-                            {profile?.avatar_url && (
-                              <img
-                                src={profile.avatar_url}
-                                alt="Avatar"
-                                className="h-6 w-6 rounded-full"
-                              />
-                            )}
+                            {profile?.avatar_url ? (
+                              <Link to={`/profile/${profile.user_id}`}>
+                                <img
+                                  src={profile.avatar_url}
+                                  alt="Avatar"
+                                  className="h-6 w-6 rounded-full"
+                                />
+                              </Link>
+                            ) : null}
                             <p className="text-sm font-medium">
-                              {profile?.username || profile?.name || "User"}
+                              {profile ? (
+                                <Link to={`/profile/${profile.user_id}`}>{profile.username || profile.name || "User"}</Link>
+                              ) : "User"}
                             </p>
                           </div>
-                          
                           {artwork.title && (
                             <p className="text-sm font-medium mb-1">{artwork.title}</p>
                           )}
-                          
                           {artwork.description && (
                             <p className="text-xs text-muted-foreground line-clamp-2">
                               {artwork.description}
                             </p>
                           )}
-
                           <Button 
                             variant="outline" 
                             size="sm" 
