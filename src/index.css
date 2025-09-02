@@ -17,8 +17,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -34,7 +34,25 @@ All colors MUST be HSL.
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 262 83% 58%;
+
+    /* Viral Looply Colors */
+    --spotify-green: 141 76% 48%;
+    --viral-purple: 262 83% 58%;
+    --viral-pink: 330 81% 60%;
+    --viral-blue: 199 89% 48%;
+    --viral-orange: 25 95% 53%;
+    --viral-yellow: 45 93% 47%;
+
+    /* Gradients */
+    --gradient-viral: linear-gradient(135deg, hsl(var(--viral-purple)), hsl(var(--viral-pink)));
+    --gradient-music: linear-gradient(135deg, hsl(var(--spotify-green)), hsl(var(--viral-blue)));
+    --gradient-persona: linear-gradient(135deg, hsl(var(--viral-orange)), hsl(var(--viral-yellow)));
+    --gradient-compatibility: linear-gradient(135deg, hsl(var(--viral-pink)), hsl(var(--viral-purple)));
+
+    /* Shadow Effects */
+    --shadow-viral: 0 10px 25px -5px hsl(var(--viral-purple) / 0.3);
+    --shadow-glow: 0 0 20px hsl(var(--viral-pink) / 0.4);
 
     --radius: 0.5rem;
 
@@ -65,8 +83,8 @@ All colors MUST be HSL.
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -82,7 +100,7 @@ All colors MUST be HSL.
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 262 83% 58%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -101,5 +119,48 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Viral Button Animations */
+  .btn-viral {
+    @apply bg-gradient-to-r from-[hsl(var(--viral-purple))] to-[hsl(var(--viral-pink))] text-white font-medium px-6 py-2 rounded-full;
+    @apply transform transition-all duration-300 hover:scale-105 hover:shadow-[0_10px_25px_-5px_hsl(var(--viral-purple)/0.4)];
+    @apply active:scale-95;
+  }
+
+  .btn-spotify {
+    @apply bg-[hsl(var(--spotify-green))] text-white font-medium px-6 py-2 rounded-full;
+    @apply transform transition-all duration-300 hover:scale-105 hover:shadow-[0_10px_25px_-5px_hsl(var(--spotify-green)/0.4)];
+  }
+
+  /* Persona Card Styles */
+  .persona-card {
+    @apply relative overflow-hidden rounded-3xl p-6 text-white;
+    background: var(--gradient-viral);
+    box-shadow: var(--shadow-viral);
+    @apply transform transition-all duration-500 hover:scale-105 hover:rotate-1;
+  }
+
+  .music-card {
+    @apply relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-[hsl(var(--viral-blue))] to-[hsl(var(--spotify-green))];
+    @apply transform transition-all duration-300 hover:scale-105;
+  }
+
+  /* Compatibility Circle */
+  .compatibility-circle {
+    @apply relative w-24 h-24 rounded-full bg-gradient-to-r from-[hsl(var(--viral-pink))] to-[hsl(var(--viral-purple))];
+    @apply flex items-center justify-center text-white font-bold text-lg;
+    @apply animate-pulse;
+  }
+
+  /* Glow Effects */
+  .glow-on-hover {
+    @apply transition-all duration-300 hover:shadow-[0_0_20px_hsl(var(--viral-pink)/0.4)];
+  }
+
+  .spotify-glow {
+    @apply transition-all duration-300 hover:shadow-[0_0_20px_hsl(var(--spotify-green)/0.4)];
   }
 }
